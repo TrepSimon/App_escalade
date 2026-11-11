@@ -5,19 +5,29 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -29,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.pointer.pointerInput
@@ -97,15 +108,48 @@ fun ShowPoint(point: Point, scale: Float, maxWidth: Dp, maxHeight: Dp){
     }
 }
 
-
 fun AddPoint(position: Position): Point{
-    return SectionPoint(position, R.drawable.ic_launcher_background)
+    return SectionPoint(position)
+}
+
+@Composable
+fun AddPointPanel(isVisible: Boolean, position: Position, onSave: (Point) -> Unit, modifier: Modifier = Modifier){
+    AnimatedVisibility(
+        visible = isVisible,
+        modifier = modifier,
+        enter = slideInVertically(initialOffsetY = {it}),
+        exit = slideOutVertically (targetOffsetY = {it})
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.5f)
+                .background(
+                    color = Color.White,
+                    RoundedCornerShape(
+                        topStart = 20.dp,
+                        topEnd = 20.dp
+                    )
+                )
+                .padding(16.dp)
+        ) {
+            Text("Panneau")
+
+            Button(onClick = {
+                onSave(AddPoint(position))
+            }) {
+                Text("Save")
+            }
+        }
+    }
 }
 @Composable
 fun ShowMap(painter: Painter, points: List<Point>, modifier: Modifier = Modifier, onPointAdded: (Point) -> Unit){
     var scale by remember { mutableStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     var screenSize by remember { mutableStateOf(IntSize.Zero) }
+    var panelIsShown by remember { mutableStateOf(false) }
+    var position = Position(0f,0f)
 
 
     val transformState = rememberTransformableState {
@@ -147,7 +191,9 @@ fun ShowMap(painter: Painter, points: List<Point>, modifier: Modifier = Modifier
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onLongPress = { offset ->
-                                onPointAdded(AddPoint(Position(offset.x/maxWidth.toPx(), offset.y/maxHeight.toPx())))
+                                //onPointAdded(AddPoint(Position(offset.x/maxWidth.toPx(), offset.y/maxHeight.toPx())))
+                                position = Position(offset.x / maxWidth.toPx(), offset.y / maxHeight.toPx())
+                                panelIsShown = true
                             }
                         )
                     }
@@ -156,6 +202,13 @@ fun ShowMap(painter: Painter, points: List<Point>, modifier: Modifier = Modifier
             points.forEach { point ->
                 ShowPoint(point, scale, maxWidth, maxHeight)
             }
+
+
+            AddPointPanel(panelIsShown, modifier = Modifier.align(Alignment.BottomCenter), onSave = {
+                onPointAdded(AddPoint(position))
+                panelIsShown = false
+            }, position = position)
+
         }
     }
 }
@@ -165,7 +218,7 @@ fun GeneralMap(modifier: Modifier = Modifier){
     val points = remember { mutableStateListOf<Point>() }
 
     LaunchedEffect(Unit) {
-        val point = SectionPoint(Position(0.5f, 0.5f), R.drawable.ic_launcher_background)
+        val point = SectionPoint(Position(0.5f, 0.5f))
         points.add(point);
     }
 

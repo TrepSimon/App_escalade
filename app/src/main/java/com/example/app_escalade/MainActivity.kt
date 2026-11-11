@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Box
@@ -18,7 +19,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -28,12 +31,18 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import com.example.app_escalade.point.Point
+import com.example.app_escalade.point.SectionPoint
 import com.example.app_escalade.ui.theme.App_escaladeTheme
+import kotlin.collections.emptyList
+import kotlin.collections.mutableListOf
 import kotlin.math.ln
 
 class MainActivity : ComponentActivity() {
@@ -66,7 +75,34 @@ fun limitMouvement(offset: Offset, scale: Float, screenSize: IntSize): Offset{
 }
 
 @Composable
-fun ShowMap(painter: Painter, points: List<Point>, modifier: Modifier = Modifier){
+fun ShowPoint(point: Point, scale: Float, maxWidth: Dp, maxHeight: Dp){
+    val markerScale = 1f / (1f + 0.5f * ln(scale.toDouble())).toFloat()
+
+    Box(
+        modifier = Modifier
+            .offset(
+                x = maxWidth * point.position.x,
+                y = maxHeight * point.position.y
+            )
+            .size(10.dp)
+            .graphicsLayer {
+                scaleX = markerScale
+                scaleY = markerScale
+            }
+            .clickable {
+                point.onClick()
+            }
+    ){
+        Image(painterResource(point.imageRessource), contentDescription = "")
+    }
+}
+
+
+fun AddPoint(position: Position): Point{
+    return SectionPoint(position, R.drawable.ic_launcher_background)
+}
+@Composable
+fun ShowMap(painter: Painter, points: List<Point>, modifier: Modifier = Modifier, onPointAdded: (Point) -> Unit){
     var scale by remember { mutableStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     var screenSize by remember { mutableStateOf(IntSize.Zero) }
@@ -87,7 +123,7 @@ fun ShowMap(painter: Painter, points: List<Point>, modifier: Modifier = Modifier
     Box(modifier
         .fillMaxSize()
         .clipToBounds()
-        .onSizeChanged{
+        .onSizeChanged {
             screenSize = it
         }
         .transformable(state = transformState),
@@ -96,7 +132,7 @@ fun ShowMap(painter: Painter, points: List<Point>, modifier: Modifier = Modifier
         BoxWithConstraints(Modifier
             .fillMaxSize()
             .aspectRatio(1.5f)
-            .graphicsLayer{
+            .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
                 translationX = offset.x
@@ -106,29 +142,19 @@ fun ShowMap(painter: Painter, points: List<Point>, modifier: Modifier = Modifier
                 painter = painter,
                 contentDescription = "",
                 contentScale = ContentScale.FillBounds,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onLongPress = { offset ->
+                                onPointAdded(AddPoint(Position(offset.x/maxWidth.toPx(), offset.y/maxHeight.toPx())))
+                            }
+                        )
+                    }
             )
 
             points.forEach { point ->
-                val markerScale = 1f / (1f + 0.5f * ln(scale.toDouble())).toFloat()
-
-                Box(
-                    modifier = Modifier
-                        .offset(
-                        x = maxWidth * point.position.x,
-                        y = maxHeight * point.position.y
-                        )
-                        .size(10.dp)
-                        .graphicsLayer{
-                            scaleX = markerScale
-                            scaleY = markerScale
-                        }
-                        .clickable{
-                            Log.i("APP", "Point appuyer")
-                        }
-                ){
-                    Image(painterResource(R.drawable.ic_launcher_background), contentDescription = "")
-                }
+                ShowPoint(point, scale, maxWidth, maxHeight)
             }
         }
     }
@@ -136,9 +162,15 @@ fun ShowMap(painter: Painter, points: List<Point>, modifier: Modifier = Modifier
 
 @Composable
 fun GeneralMap(modifier: Modifier = Modifier){
-    val points = mutableListOf<Point>()
+    val points = remember { mutableStateListOf<Point>() }
 
-    val point = Point(Position(0.5f,0.5f))
-    points.add(point);
-    ShowMap(painterResource(R.drawable.screenshot_2026_11_05_085348), points, modifier = modifier);
+    LaunchedEffect(Unit) {
+        val point = SectionPoint(Position(0.5f, 0.5f), R.drawable.ic_launcher_background)
+        points.add(point);
+    }
+
+    ShowMap(painterResource(R.drawable.screenshot_2026_11_05_085348), points, modifier = modifier, onPointAdded = {
+        points.add(it)
+        Log.i("Ajout", "point ajouter a ${it.position}///${points.size}")
+    });
 }
